@@ -10,11 +10,14 @@ Pensado para entrenar con el teléfono o la computadora a la vista: fondo carbó
 - Avanzar o retroceder entre intervalos.
 - Fases de preparación, trabajo, descanso y descanso entre series, con pantalla de finalización.
 - Indicadores de ronda, serie, ciclo, siguiente intervalo, tiempo restante y progreso de sesión.
-- Cuenta regresiva visual y pitidos sintetizados con Web Audio API, sin archivos de audio externos.
+- Cuenta regresiva visual y señales sintetizadas con Web Audio API, sin archivos de audio externos: tonos ascendentes para trabajo, descendentes para descanso y una secuencia de finalización.
+- Estilos de sonido Deportivo y Suave, volumen ajustable y muestras para escuchar desde el botón de sonido. Abrir estos ajustes pausa una sesión en marcha; el estilo y el volumen se guardan en este navegador.
 - Opción para mantener la pantalla encendida mediante Screen Wake Lock API.
 - Pantalla completa, según compatibilidad del navegador.
 - Creador de rutinas con tiempos, rondas, series y ciclos configurables.
-- Guardado y eliminación de rutinas personalizadas en `localStorage`.
+- Guardado, edición, duplicación y eliminación de rutinas personalizadas en `localStorage`.
+- Biblioteca separada del reloj: al abrirla durante una sesión, el entrenamiento se pausa.
+- Confirmación antes de reiniciar una sesión avanzada, cambiar de rutina o eliminar una rutina guardada.
 - Manifest, service worker e iconos para instalación como PWA en navegadores compatibles.
 
 ### Rutinas incluidas
@@ -35,6 +38,7 @@ En EMOM, cada intervalo es una ventana de 60 segundos: realiza las repeticiones 
 - **React 19** y **TypeScript** en modo estricto.
 - **Tailwind CSS 4** y estilos CSS personalizados.
 - **Lucide React** para iconos.
+- **Barlow Condensed**, empaquetada localmente mediante Fontsource, para el reloj y la tipografía deportiva.
 - APIs del navegador: Web Audio, Screen Wake Lock, Fullscreen, Service Worker y localStorage.
 
 ## Desarrollo local
@@ -141,17 +145,22 @@ El audio se habilita con la interacción del usuario al iniciar el entrenamiento
 src/
   app/
     layout.tsx             # Layout, idioma y metadatos
-    page.tsx               # Temporizador y selección de rutinas
+    page.tsx               # Vistas, persistencia y coordinación de la sesión
     globals.css            # Diseño adaptable y colores por fase
     favicon.ico            # Icono de la pestaña
   components/
     RoutineEditor.tsx      # Formulario de rutinas
+    RoutineLibrary.tsx     # Biblioteca, presets y acciones sobre rutinas
+    TrainingScreen.tsx     # Pantalla de entrenamiento y controles
     TimerDisplay.tsx       # Dígitos del temporizador
+    Dialog.tsx             # Diálogo nativo con gestión de foco y Escape
+    SoundSettings.tsx      # Estilo, volumen y muestras de audio
   hooks/
     useTabataTimer.ts      # Estados, controles y cálculo temporal
     useTimerEffects.ts     # Sonidos y bloqueo de pantalla
   lib/
     routines.ts            # Tipos, presets, secuencias y repositorio
+    timerAudio.ts          # Síntesis de sonido y selección de señales
 public/
   manifest.webmanifest     # Identidad de la PWA
   sw.js                    # Caché y acceso sin conexión
@@ -160,15 +169,15 @@ public/
   icon-512.png             # Icono PWA
 tests/
   routines.test.ts         # Pruebas de secuencias y validación
+  timerAudio.test.ts       # Transiciones sonoras y preferencias de audio
 ```
 
 ## Validación
 
 ```sh
 npm run typecheck
-node --experimental-strip-types --test tests/routines.test.ts
+node --experimental-strip-types --test tests/*.test.ts
 npm run build
 ```
 
 Las pruebas incluidas cubren secuencias de intervalos, duración de presets, series/ciclos, omisión de intervalos de cero segundos, validación de rutinas y formato del tiempo. La compatibilidad del audio, Wake Lock, instalación y caché debe comprobarse también en los dispositivos y navegadores de destino.
-

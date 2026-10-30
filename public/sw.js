@@ -1,4 +1,4 @@
-const CACHE = "forge-v1";
+const CACHE = "interval-training-v2";
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches

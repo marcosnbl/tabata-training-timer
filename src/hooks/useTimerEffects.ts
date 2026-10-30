@@ -1,6 +1,13 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
 import type { Phase, TimerStatus } from "@/lib/routines";
+import {
+  TimerAudio,
+  resolveSoundCue,
+  type AudioPreferences,
+  type AudioSnapshot,
+  type SoundCue,
+} from "@/lib/timerAudio";
 export function useTimerEffects(
   status: TimerStatus,
   index: number,
@@ -8,41 +15,46 @@ export function useTimerEffects(
   sound: boolean,
   awake: boolean,
   phase: Phase,
+  preferences: AudioPreferences,
 ) {
-  const audio = useRef<AudioContext | null>(null);
-  const last = useRef("");
-  const previousIndex = useRef(-1);
+  const audio = useRef<TimerAudio | null>(null);
+  const previous = useRef<AudioSnapshot | null>(null);
   const [wakeState, setWakeState] = useState("Desactivado");
-  const unlock = () => {
-    audio.current ??= new AudioContext();
-    void audio.current.resume();
-  };
-  useEffect(() => {
-    if (status === "idle") {
-      previousIndex.current = -1;
-      last.current = "";
-      return;
+  const [audioError, setAudioError] = useState("");
+  const unlock = async () => {
+    try {
+      audio.current ??= new TimerAudio();
+      await audio.current.unlock();
+      setAudioError("");
+    } catch {
+      setAudioError(
+        "El navegador no pudo activar el audio. Vuelve a probar o revisa los permisos de sonido del sitio.",
+      );
     }
-    if (status !== "running" && status !== "finished") return;
-    const seconds = Math.ceil(remaining);
-    const key = `${status === "finished" ? "end" : index}:${seconds}`;
-    if (last.current === key) return;
-    last.current = key;
-    const changed = previousIndex.current !== index || status === "finished";
-    previousIndex.current = index;
-    if (!sound || !audio.current || (!changed && (seconds > 3 || seconds < 1)))
-      return;
-    const ctx = audio.current;
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-    osc.frequency.value = changed ? (phase === "work" ? 950 : 780) : 620;
-    gain.gain.setValueAtTime(0.12, ctx.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.15);
-    osc.start();
-    osc.stop(ctx.currentTime + 0.16);
-  }, [status, index, remaining, sound, phase]);
+  };
+  const preview = async (cue: SoundCue) => {
+    await unlock();
+    audio.current?.preview(cue, preferences);
+  };
+  const seconds = Math.ceil(remaining);
+  useEffect(() => {
+    const snapshot: AudioSnapshot = { status, index, seconds, phase };
+    const cue = resolveSoundCue(previous.current, snapshot);
+    previous.current = snapshot;
+    if (status === "paused" || status === "idle" || !sound)
+      audio.current?.cancel();
+    if (cue && sound) audio.current?.play(cue, preferences, seconds);
+  }, [status, index, seconds, phase, sound, preferences]);
+  useEffect(() => {
+    audio.current?.cancel();
+  }, [sound, preferences.style, preferences.volume]);
+  useEffect(
+    () => () => {
+      audio.current?.dispose();
+      audio.current = null;
+    },
+    [],
+  );
   useEffect(() => {
     let lock: WakeLockSentinel | null = null;
     let disposed = false;
@@ -82,5 +94,11 @@ export function useTimerEffects(
       void lock?.release();
     };
   }, [awake, status]);
-  return { unlock, wakeState };
+  return {
+    unlock,
+    preview,
+    cancelPreview: () => audio.current?.cancel(),
+    wakeState,
+    audioError,
+  };
 }
